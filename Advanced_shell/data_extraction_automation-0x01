@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+# File: Advanced_shell/parse_pikachu
+# Objective: Extract specific data fields (name, type, weight, height) from data.json,
+# calculate unit conversions, and format the output using jq and awk.
+#
+# Constraints: Only uses jq, awk, and sed for data manipulation.
+
+DATA_FILE="data.json"
+
+# Check if the data file exists
+if [ ! -f "$DATA_FILE" ]; then
+    echo "Error: Data file '$DATA_FILE' not found. Ensure the API retrieval script has run successfully." 1>&2
+    exit 1
+fi
+
+# 1. Use 'jq' to extract the required fields and join them into a single colon-separated string.
+#    Fields extracted: Name, Primary Type, Weight (in hectograms), Height (in decimetres).
+JSON_DATA=$(jq -r '[.name, .types[0].type.name, .weight, .height] | join(":")' "$DATA_FILE")
+
+# 2. Pipe the colon-separated string into 'awk' for parsing, conversion, and final formatting.
+echo "$JSON_DATA" | awk -F: '{
+    # Field mapping:
+    # $1: name (e.g., "pikachu")
+    # $2: type (e.g., "electric")
+    # $3: weight in hectograms (hg) -> Needs to be divided by 10 for kg
+    # $4: height in decimetres (dm) -> Needs to be divided by 10 for m
+
+    # Custom function to capitalize the first letter of a word (Title-casing)
+    # The output is slightly improved for human readability (Pikachu, Electric).
+    # If the system does not support tolower/toupper, the raw name is used.
+    name_cap = $1
+    if (tolower(name_cap) == name_cap) { # Simple check if tolower/toupper is available
+        name_cap = toupper(substr($1, 1, 1)) tolower(substr($1, 2))
+        type_cap = toupper(substr($2, 1, 1)) tolower(substr($2, 2))
+    } else {
+        type_cap = $2
+    }
+    
+    # Unit Conversions:
+    weight_kg = $3 / 10
+    height_m = $4 / 10
+
+    # Print the final formatted string:
+    # "Pikachu is of type Electric, weighs 6kg, and is 0.4m tall."
+    # %.0f is used for weight (ensures 6 instead of 6.0)
+    # %.1f is used for height (ensures 0.4)
+    printf "%s is of type %s, weighs %.0fkg, and is %.1fm tall.\n", \
+           name_cap, \
+           type_cap, \
+           weight_kg, \
+           height_m
+}'
+
+exit 0
