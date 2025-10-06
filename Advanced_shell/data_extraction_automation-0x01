@@ -41,6 +41,7 @@ echo "$JSON_DATA" | awk -F: '{
     weight_kg = $3 / 10
     height_m = $4 / 10
 
+    # ["$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."]
     # Print the final formatted string:
     # "Pikachu is of type Electric, weighs 6kg, and is 0.4m tall."
     # %.0f is used for weight (ensures 6 instead of 6.0)
