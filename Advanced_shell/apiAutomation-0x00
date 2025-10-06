@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+# File: Advanced_shell/apiAutomation-0x00
+# Objective: Retrieve Pokémon data for Pikachu from the PokeAPI and save it to data.json.
+# If the request fails, log the error to errors.txt.
+
+# --- Configuration ---
+POKEMON_NAME="pikachu"
+API_URL="https://pokeapi.co/api/v2/pokemon/${POKEMON_NAME}"
+DATA_FILE="data.json"
+ERROR_LOG="errors.txt"
+
+# --- Main Logic ---
+
+# 1. Make the API request using curl.
+#    -s: Silent mode (don't show progress bar or error messages)
+#    -w %{http_code}: Output the HTTP status code after the body.
+#    -o /dev/stdout: Direct the body to standard output.
+#    -D /dev/stderr: Send headers to standard error (we discard them here by redirecting stderr).
+# We capture the full output (body + status code) into a variable.
+# We also redirect curl's standard error to /dev/null to silence non-critical warnings,
+# relying on the exit code ($?) for failure detection.
+
+# The output format is: {JSON_BODY}{HTTP_CODE}
+RESPONSE=$(curl -s -w "%{http_code}" -o /dev/stdout "${API_URL}" 2>/dev/null)
+CURL_STATUS=$?
+
+# Separate the HTTP status code (last 3 characters) from the JSON body
+HTTP_CODE="${RESPONSE: -3}"
+JSON_BODY="${RESPONSE:0:-3}"
+
+# 2. Check the curl exit status first (network or connection issues)
+if [ "$CURL_STATUS" -ne 0 ]; then
+    # Network/Connection failure
+    ERROR_MESSAGE="[$(date +'%Y-%m-%d %H:%M:%S')] FATAL: curl failed with exit code $CURL_STATUS for URL: $API_URL"
+    echo "$ERROR_MESSAGE" >> "$ERROR_LOG"
+    echo "Error: The network request failed. See $ERROR_LOG for details." 1>&2
+
+# 3. If curl succeeded, check the HTTP status code (application-level errors, e.g., 404)
+elif [ "$HTTP_CODE" -ge 400 ]; then
+    # HTTP error (e.g., 404 Not Found, 500 Server Error)
+    ERROR_MESSAGE="[$(date +'%Y-%m-%d %H:%M:%S')] HTTP ERROR: Received status code $HTTP_CODE for $POKEMON_NAME. Response body: $JSON_BODY"
+    echo "$ERROR_MESSAGE" >> "$ERROR_LOG"
+    echo "Error: The API returned an HTTP error $HTTP_CODE. See $ERROR_LOG for details." 1>&2
+
+# 4. Success case (HTTP 2xx)
+else
+    # Save the JSON body to the output file
+    echo "$JSON_BODY" > "$DATA_FILE"
+    echo "Successfully retrieved data for $POKEMON_NAME and saved it to $DATA_FILE."
+fi
+
+exit "$CURL_STATUS"
